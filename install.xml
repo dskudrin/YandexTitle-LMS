@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension>
+    <name>YandexTitle</name>
+    <title lang="EN">Yandex LMS Title Filter</title>
+    <version>0.2.0</version>
+    <creator>Local</creator>
+    <module>Plugins::YandexTitle::Plugin</module>
+    <desc lang="EN">Adds artist, title and artwork metadata to Yandex Station streams.</desc>
+    <defaultState>enabled</defaultState>
+
+    <targetApplication>
+        <id>LogitechMediaServer</id>
+        <minVersion>9.0</minVersion>
+        <maxVersion>9.*</maxVersion>
+    </targetApplication>
+</extension>
