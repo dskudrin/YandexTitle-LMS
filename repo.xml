@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extensions>
+  <plugins>
+    <plugin name="YandexTitle"
+            version="0.2.0"
+            minTarget="9.0"
+            maxTarget="*">
+      <title lang="EN">Yandex LMS Title Filter</title>
+      <desc lang="EN">Adds artist, title and artwork metadata to Yandex Station streams.</desc>
+      <creator>Local</creator>
+      <url>https://raw.githubusercontent.com/dskudrin/YandexTitle-LMS/main/dist/YandexTitle-0.2.0.zip</url>
+      <sha>1939f265456de992d5314c497b0dbd4f1e559d38</sha>
+    </plugin>
+  </plugins>
+</extensions>
