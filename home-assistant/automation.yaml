@@ -1,0 +1,61 @@
+alias: Алиса. Передача метаданных в LMS
+description: >
+  Передает в LMS исполнителя, название трека и обложку при воспроизведении
+  Яндекс Станции через Zone1-Zone4 или Integra/DHC.
+triggers:
+  - trigger: state
+    entity_id:
+      - media_player.yandex_station_m004w2300y9xyg
+      - media_player.yandex_station_m00f6h2003zehk
+      - media_player.yandex_station_l01t30m00wt8gn
+      - media_player.yandex_station_l01vfj500nmapk
+      - media_player.yandex_station_l01bgf80030zfc
+      - media_player.yandex_station_m10j5x100xsg9g
+    attribute: media_title
+
+conditions: []
+
+actions:
+  - variables:
+      source: >-
+        {{ trigger.to_state.attributes.get('source', '') }}
+
+      artist: >-
+        {{ trigger.to_state.attributes.get('media_artist', '') | default('', true) }}
+
+      title: >-
+        {{ trigger.to_state.attributes.get('media_title', '') | default('', true) }}
+
+      cover: >-
+        {{ trigger.to_state.attributes.get('entity_picture', '') | default('', true) }}
+
+      players:
+        media_player.zone1: media_player.zone1
+        media_player.zone2: media_player.zone2
+        media_player.zone3: media_player.zone3
+        media_player.zone4: media_player.zone4
+        Integra: media_player.dhc_80_6_2
+        media_player.dhc_80_6_2: media_player.dhc_80_6_2
+
+      target_player: >-
+        {{ players.get(source, '') }}
+
+  - condition: template
+    value_template: >-
+      {{ target_player != ''
+         and title != ''
+         and title not in ['unknown', 'unavailable', 'None'] }}
+
+  - action: squeezebox.call_method
+    target:
+      entity_id: "{{ target_player }}"
+    data:
+      command: yandextitle
+      parameters:
+        - metadata
+        - "{{ artist }}"
+        - "{{ title }}"
+        - "{{ cover }}"
+
+mode: parallel
+max: 10
