@@ -18,6 +18,7 @@ my $prefs = preferences('plugin.yandextitle');
 my $previousPlaylistPlay;
 my $previousPlaylistIndex;
 my $previousPlaylistJump;
+my $previousButton;
 
 my %ZONE_BY_PLAYER = (
     'b8:27:eb:6d:75:2c' => 'Z1',
@@ -48,6 +49,11 @@ sub initPlugin {
         [ 1, 0, 0, \&playlistJump ]
     );
 
+    $previousButton = Slim::Control::Request::addDispatch(
+        [ 'button', '_buttoncode', '_time', '_orFunction' ],
+        [ 1, 0, 0, \&buttonCommand ]
+    );
+
     Slim::Control::Request::addDispatch(
         [ 'yandextitle', 'metadata', '_artist', '_title', '_cover' ],
         [ 1, 0, 0, \&metadataCommand ]
@@ -63,7 +69,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.2: metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.3: metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -85,6 +91,13 @@ sub shutdownPlugin {
         Slim::Control::Request::addDispatch(
             [ 'playlist', 'jump', '_index', '_fadein', '_noplay', '_seekdata' ],
             [ 1, 0, 0, $previousPlaylistJump ]
+        );
+    }
+
+    if ($previousButton) {
+        Slim::Control::Request::addDispatch(
+            [ 'button', '_buttoncode', '_time', '_orFunction' ],
+            [ 1, 0, 0, $previousButton ]
         );
     }
 }
@@ -208,6 +221,53 @@ sub sendTransportWebhook {
     );
 
     return 1;
+}
+
+sub buttonCommand {
+    my $request = shift;
+
+    my $client = $request->client();
+    my $code   = $request->getParam('_buttoncode');
+
+    if (
+        $client
+        && defined $code
+        && !ref $code
+        && ($code eq 'fwd' || $code eq 'rew')
+    ) {
+        my $player_id = lc($client->id || '');
+        my $url = Slim::Player::Playlist::url($client);
+
+        if (
+            $ZONE_BY_PLAYER{$player_id}
+            && defined $url
+            && !ref $url
+            && $url =~ m{/api/yandex_station/}
+        ) {
+            my $command = $code eq 'fwd' ? 'next' : 'previous';
+
+            if (sendTransportWebhook($player_id, $command)) {
+                $log->info(
+                    "YandexTitle: intercepted button $code " .
+                    "for $player_id -> Alice $command"
+                );
+
+                $request->setStatusDone();
+                return;
+            }
+
+            $log->warn(
+                'YandexTitle: Alice button command not intercepted ' .
+                'because HA webhook is not configured'
+            );
+        }
+    }
+
+    if ($previousButton) {
+        return $previousButton->($request);
+    }
+
+    $request->setStatusBadDispatch();
 }
 
 sub handlePlaylistTransport {
