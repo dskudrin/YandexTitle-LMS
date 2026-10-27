@@ -63,7 +63,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.1: metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.2: metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
