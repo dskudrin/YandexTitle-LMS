@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.3
+
+- Intercepts legacy RTI `button fwd` and `button rew` directly while a Yandex Station stream is active.
+- Maps RTI `fwd` to Home Assistant `next` and `rew` to `previous` before LMS runs its normal button logic.
+- Keeps Astrion support through `playlist index +1/-1`.
+- Preserves native button behavior for non-Yandex playback.
+
 ## 0.3.2
 
 - Rebuilt the installable ZIP from the clean repository sources.
