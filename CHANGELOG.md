@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Added interception of `playlist jump +1/-1` used by the legacy RTI Squeezebox driver.
+- RTI `button fwd` / `button rew` now forward Alice NEXT/PREV through the same Home Assistant webhook bridge.
+- Kept `playlist index +1/-1` support for Astrion/other LMS clients.
+- Normal LMS playback still delegates both `playlist jump` and `playlist index` to their original handlers.
+
 ## 0.3.0
 
 - Added reverse LMS → Home Assistant transport bridge for Yandex Station streams.
