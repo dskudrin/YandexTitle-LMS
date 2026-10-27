@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2
+
+- Rebuilt the installable ZIP from the clean repository sources.
+- Fixed package corruption that could leave an invalid `Plugin.pm` after installation.
+- No functional transport changes versus 0.3.1: RTI uses `playlist jump ±1`, Astrion uses `playlist index ±1`.
+
 ## 0.3.1
 
 - Added interception of `playlist jump +1/-1` used by the legacy RTI Squeezebox driver.
