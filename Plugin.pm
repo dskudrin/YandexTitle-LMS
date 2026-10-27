@@ -17,6 +17,7 @@ my $prefs = preferences('plugin.yandextitle');
 
 my $previousPlaylistPlay;
 my $previousPlaylistIndex;
+my $previousPlaylistJump;
 
 my %ZONE_BY_PLAYER = (
     'b8:27:eb:6d:75:2c' => 'Z1',
@@ -42,6 +43,11 @@ sub initPlugin {
         [ 1, 0, 0, \&playlistIndex ]
     );
 
+    $previousPlaylistJump = Slim::Control::Request::addDispatch(
+        [ 'playlist', 'jump', '_index', '_fadein', '_noplay', '_seekdata' ],
+        [ 1, 0, 0, \&playlistJump ]
+    );
+
     Slim::Control::Request::addDispatch(
         [ 'yandextitle', 'metadata', '_artist', '_title', '_cover' ],
         [ 1, 0, 0, \&metadataCommand ]
@@ -57,7 +63,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.0: metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.1: metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -72,6 +78,13 @@ sub shutdownPlugin {
         Slim::Control::Request::addDispatch(
             [ 'playlist', 'index', '_index', '_fadein', '_noplay', '_seekdata' ],
             [ 1, 0, 0, $previousPlaylistIndex ]
+        );
+    }
+
+    if ($previousPlaylistJump) {
+        Slim::Control::Request::addDispatch(
+            [ 'playlist', 'jump', '_index', '_fadein', '_noplay', '_seekdata' ],
+            [ 1, 0, 0, $previousPlaylistJump ]
         );
     }
 }
@@ -197,8 +210,8 @@ sub sendTransportWebhook {
     return 1;
 }
 
-sub playlistIndex {
-    my $request = shift;
+sub handlePlaylistTransport {
+    my ($request, $previous_handler, $transport_name) = @_;
 
     my $client = $request->client();
     my $index  = $request->getParam('_index');
@@ -222,7 +235,7 @@ sub playlistIndex {
 
             if (sendTransportWebhook($player_id, $command)) {
                 $log->info(
-                    "YandexTitle: intercepted playlist index $index " .
+                    "YandexTitle: intercepted playlist $transport_name $index " .
                     "for $player_id -> Alice $command"
                 );
 
@@ -237,11 +250,29 @@ sub playlistIndex {
         }
     }
 
-    if ($previousPlaylistIndex) {
-        return $previousPlaylistIndex->($request);
+    if ($previous_handler) {
+        return $previous_handler->($request);
     }
 
     $request->setStatusBadDispatch();
+}
+
+sub playlistIndex {
+    my $request = shift;
+    return handlePlaylistTransport(
+        $request,
+        $previousPlaylistIndex,
+        'index'
+    );
+}
+
+sub playlistJump {
+    my $request = shift;
+    return handlePlaylistTransport(
+        $request,
+        $previousPlaylistJump,
+        'jump'
+    );
 }
 
 sub metadataCommand {
