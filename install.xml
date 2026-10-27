@@ -2,10 +2,10 @@
 <extension>
     <name>YandexTitle</name>
     <title lang="EN">Yandex LMS Title Filter</title>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <creator>Local</creator>
     <module>Plugins::YandexTitle::Plugin</module>
-    <desc lang="EN">Adds artist, title and artwork metadata to Yandex Station streams.</desc>
+    <desc lang="EN">Adds Yandex Station metadata and forwards next/previous LMS transport commands to Home Assistant.</desc>
     <defaultState>enabled</defaultState>
 
     <targetApplication>
