@@ -17,7 +17,7 @@ If metadata has not arrived yet, the plugin uses a short fallback such as `Z1`, 
 
 ## Current version
 
-**0.3.0**
+**0.3.1**
 
 Tested with Lyrion Music Server 9.x.
 
@@ -43,12 +43,16 @@ The example in `home-assistant/automation.yaml` forwards `media_artist`, `media_
 
 ## Transport: LMS/RTI → Home Assistant
 
-When an LMS player is currently playing a URL containing `/api/yandex_station/`, YandexTitle intercepts:
+When an LMS player is currently playing a URL containing `/api/yandex_station/`, YandexTitle intercepts both transport forms used by our controllers:
 
 ```
 playlist index +1
 playlist index -1
+playlist jump +1
+playlist jump -1
 ```
+
+Astrion uses `playlist index`; the legacy RTI Squeezebox driver emits `button fwd/rew`, which LMS converts to `playlist jump +1/-1`.
 
 and sends a JSON webhook to Home Assistant:
 
@@ -56,7 +60,7 @@ and sends a JSON webhook to Home Assistant:
 {"player_id":"b8:27:eb:6d:75:2c","zone":"Z1","command":"next"}
 ```
 
-For all other LMS playback, the original `playlist index` handler is called unchanged.
+For all other LMS playback, the original `playlist index` or `playlist jump` handler is called unchanged.
 
 Configure the Home Assistant webhook URL once through the LMS CLI. URL-encode the URL when sending it over the LMS CLI, for example:
 
@@ -73,6 +77,6 @@ The Home Assistant webhook automation dynamically finds the Yandex Station whose
 - `Plugin.pm` — LMS plugin code
 - `install.xml` — plugin manifest
 - `repo.xml` — LMS Additional Repository index
-- `dist/YandexTitle-0.3.0.zip` — installable package
+- `dist/YandexTitle-0.3.1.zip` — installable package
 - `home-assistant/automation.yaml` — Home Assistant metadata and reverse-control automations
 - `CHANGELOG.md` — version history
