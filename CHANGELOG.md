@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Added reverse LMS → Home Assistant transport bridge for Yandex Station streams.
+- Intercepts `playlist index +1` and `playlist index -1` only while the current LMS URL is a Home Assistant Yandex Station stream.
+- Sends asynchronous JSON webhooks to Home Assistant for `next` / `previous`.
+- Added `yandextitle webhook <url>` CLI command; the webhook URL is stored locally in LMS preferences and is not kept in the public repository.
+- Keeps normal LMS next/previous behavior unchanged for non-Yandex playback.
+- Verified with legacy RTI Squeezebox controls and normal LMS playlists.
+
 ## 0.2.0
 
 - Added Home Assistant → LMS metadata command: `yandextitle metadata`.
