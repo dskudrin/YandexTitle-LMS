@@ -59,3 +59,75 @@ actions:
 
 mode: parallel
 max: 10
+
+---
+
+alias: Алиса. Управление из LMS
+description: >
+  Принимает next/previous из YandexTitle и передает команду той Яндекс Станции,
+  которая сейчас транслируется в соответствующую LMS Zone.
+triggers:
+  - trigger: webhook
+    webhook_id: lms_yandex_control_CHANGE_ME
+    allowed_methods:
+      - POST
+    local_only: true
+
+conditions: []
+
+actions:
+  - variables:
+      player_id: "{{ trigger.json.player_id | lower }}"
+      command: "{{ trigger.json.command | lower }}"
+
+      source_by_player:
+        b8:27:eb:6d:75:2c: media_player.zone1
+        b8:27:eb:fa:8f:84: media_player.zone2
+        b8:27:eb:51:c7:73: media_player.zone3
+        b8:27:eb:fb:09:ef: media_player.zone4
+        bb:bb:b0:49:f0:4b: Integra
+
+      source: "{{ source_by_player.get(player_id, '') }}"
+
+      stations:
+        - media_player.yandex_station_m004w2300y9xyg
+        - media_player.yandex_station_m00f6h2003zehk
+        - media_player.yandex_station_l01t30m00wt8gn
+        - media_player.yandex_station_l01vfj500nmapk
+        - media_player.yandex_station_l01bgf80030zfc
+        - media_player.yandex_station_m10j5x100xsg9g
+
+      station_entity: >-
+        {% set ns = namespace(entity='') %}
+        {% for entity in stations %}
+          {% if state_attr(entity, 'source') == source %}
+            {% set ns.entity = entity %}
+          {% endif %}
+        {% endfor %}
+        {{ ns.entity }}
+
+  - condition: template
+    value_template: >-
+      {{ source != ''
+         and station_entity != ''
+         and command in ['next', 'previous'] }}
+
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'next' }}"
+        sequence:
+          - action: media_player.media_next_track
+            target:
+              entity_id: "{{ station_entity }}"
+
+      - conditions:
+          - condition: template
+            value_template: "{{ command == 'previous' }}"
+        sequence:
+          - action: media_player.media_previous_track
+            target:
+              entity_id: "{{ station_entity }}"
+
+mode: parallel
+max: 10
