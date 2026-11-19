@@ -80,17 +80,10 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    Slim::Control::Request::subscribe(
-        \&favoritesPlaylistSeen,
-        [['favorites'], ['playlist']]
-    );
-
-    $log->warn('YandexTitle 0.3.10: passive LMS Favorite labels, UTF-8 Station/Playlist labels and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.11: Favorite URL detection in playlist play, UTF-8 Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
-    Slim::Control::Request::unsubscribe(\&favoritesPlaylistSeen);
-
     if ($previousPlaylistPlay) {
         Slim::Control::Request::addDispatch(
             [ 'playlist', 'play', '_item', '_title', '_fadein' ],
@@ -349,54 +342,6 @@ sub playlistJump {
     );
 }
 
-sub favoritesPlaylistSeen {
-    my $request = shift;
-    my $client  = $request->client();
-
-    return if !$client;
-
-    my $method = $request->getParam('_method');
-    return if !defined $method || ref $method || $method ne 'play';
-
-    my $item_id = $request->getParam('item_id');
-    return if !defined $item_id || ref $item_id || $item_id eq '';
-
-    my $player_id = lc($client->id || '');
-    return if !$ZONE_BY_PLAYER{$player_id};
-
-    my $favorites = Slim::Plugin::Favorites::OpmlFavorites->new($client);
-    my $entry = $favorites->entry($item_id);
-    return if !$entry || ref($entry) ne 'HASH';
-
-    my $title = cleanText($entry->{'text'}, 140);
-    return if $title eq '';
-
-    my $display = displayUnicode('LMS - ' . $title);
-
-    $PENDING_SOURCE_BY_PLAYER{$player_id} = {
-        name => $display,
-        ts   => time(),
-    };
-
-    Slim::Utils::Timers::killTimers(
-        $client,
-        \&applyPendingSource
-    );
-
-    Slim::Utils::Timers::setTimer(
-        $client,
-        time() + 0.75,
-        \&applyPendingSource,
-        $player_id,
-        0
-    );
-
-    $log->info(
-        "YandexTitle: observed native Favorite play for $player_id " .
-        "item_id=$item_id -> $display"
-    );
-}
-
 sub sourceCommand {
     my $request = shift;
     my $client  = $request->client();
@@ -603,28 +548,59 @@ sub playlistPlay {
                 $request->addParam('_title', 'Алиса');
             }
         }
-        elsif (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {
-            if (
-                $source->{name}
-                && $source->{ts}
-                && (time() - $source->{ts}) <= 30
-            ) {
-                Slim::Utils::Timers::killTimers(
-                    $client,
-                    \&applyPendingSource
-                );
+        else {
+            my $favorite_display = '';
 
-                Slim::Utils::Timers::setTimer(
-                    $client,
-                    time() + 0.75,
-                    \&applyPendingSource,
-                    $player_id,
-                    0
-                );
+            my $favorites = Slim::Plugin::Favorites::OpmlFavorites->new($client);
+            my $favorite_index = $favorites->findUrl($item);
 
-                $log->info(
-                    "YandexTitle: scheduled LMS source for $player_id -> $source->{name}"
-                );
+            if (defined $favorite_index) {
+                my $entry = $favorites->entry($favorite_index);
+
+                if ($entry && ref($entry) eq 'HASH') {
+                    my $favorite_title = cleanText($entry->{'text'}, 140);
+
+                    if ($favorite_title ne '') {
+                        $favorite_display = displayUnicode(
+                            'LMS - ' . $favorite_title
+                        );
+
+                        $PENDING_SOURCE_BY_PLAYER{$player_id} = {
+                            name => $favorite_display,
+                            ts   => time(),
+                        };
+
+                        $log->warn(
+                            "YandexTitle: matched playlist play URL to Favorite " .
+                            "for $player_id index=$favorite_index -> $favorite_display"
+                        );
+                    }
+                }
+            }
+
+            if (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {
+                if (
+                    $source->{name}
+                    && $source->{ts}
+                    && (time() - $source->{ts}) <= 30
+                ) {
+                    Slim::Utils::Timers::killTimers(
+                        $client,
+                        \&applyPendingSource
+                    );
+
+                    Slim::Utils::Timers::setTimer(
+                        $client,
+                        time() + 0.75,
+                        \&applyPendingSource,
+                        $player_id,
+                        0
+                    );
+
+                    $log->info(
+                        "YandexTitle: scheduled LMS source for $player_id -> $source->{name}"
+                    );
+                }
             }
         }
     }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.11
+
+- Removes the passive `favorites playlist` subscription because native Favorite playback does not emit that notification.
+- Detects Favorites inside the existing `playlist play` handler by matching the played URL with `OpmlFavorites->findUrl()`.
+- Resolves the matched Favorite entry and queues `LMS - <Favorite name>` through the existing delayed `current_title` path.
+- Adds a warning log line when a `playlist play` URL is matched to a Favorite, making the detection path directly observable.
+- Keeps `yandextitle source` as a fallback.
+
 ## 0.3.10
 
 - Observes native `favorites playlist play item_id:...` requests through `Slim::Control::Request::subscribe` instead of replacing the Favorites dispatch handler.
