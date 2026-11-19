@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.6
+
+- Changed `yandextitle source <name>` to queue the LMS Favorite source label instead of applying it immediately to the current URL.
+- The next non-Alice `playlist play` consumes the queued label and injects `LMS - <name>` as the playlist title.
+- This removes the race where Home Assistant could set the label on the previous Alice URL before LMS switched to the Favorite.
+
+
 ## 0.3.5
 
 - Added `yandextitle source <name>` CLI command for Home Assistant.

@@ -31,6 +31,7 @@ my %ZONE_BY_PLAYER = (
 );
 
 my %PENDING_BY_PLAYER;
+my %PENDING_SOURCE_BY_PLAYER;
 my %META_BY_URL;
 
 sub initPlugin {
@@ -76,7 +77,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.5: metadata filter, LMS source label and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.6: queued LMS source labels, metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -173,6 +174,12 @@ sub cleanupMetadata {
         delete $PENDING_BY_PLAYER{$player}
             if !$PENDING_BY_PLAYER{$player}->{ts}
             || ($now - $PENDING_BY_PLAYER{$player}->{ts}) > 30;
+    }
+
+    for my $player (keys %PENDING_SOURCE_BY_PLAYER) {
+        delete $PENDING_SOURCE_BY_PLAYER{$player}
+            if !$PENDING_SOURCE_BY_PLAYER{$player}->{ts}
+            || ($now - $PENDING_SOURCE_BY_PLAYER{$player}->{ts}) > 30;
     }
 }
 
@@ -361,6 +368,8 @@ sub sourceCommand {
         return;
     }
 
+    cleanupMetadata();
+
     my $player_id = lc($client->id || '');
 
     if (!$ZONE_BY_PLAYER{$player_id}) {
@@ -378,31 +387,13 @@ sub sourceCommand {
         return;
     }
 
-    my $url = Slim::Player::Playlist::url($client);
-
-    if (!defined $url || ref $url || $url eq '') {
-        $request->setStatusBadParams();
-        return;
-    }
-
-    my $display = cleanText(
-        'LMS - ' . displayUnicode($name),
-        180
-    );
-
-    Slim::Music::Info::setCurrentTitle(
-        $url,
-        $display,
-        $client
-    );
-
-    Slim::Control::Request::notifyFromArray(
-        $client,
-        [ 'newmetadata' ]
-    );
+    $PENDING_SOURCE_BY_PLAYER{$player_id} = {
+        name => displayUnicode($name),
+        ts   => time(),
+    };
 
     $log->info(
-        "YandexTitle: source for $player_id -> $display"
+        "YandexTitle: queued LMS source for $player_id -> $name"
     );
 
     $request->setStatusDone();
@@ -477,12 +468,14 @@ sub playlistPlay {
         $client
         && defined $item
         && !ref $item
-        && $item =~ m{/api/yandex_station/}
         && (!defined $title || $title eq '')
     ) {
         my $player_id = lc($client->id || '');
 
-        if (my $zone = $ZONE_BY_PLAYER{$player_id}) {
+        if (
+            $item =~ m{/api/yandex_station/}
+            && (my $zone = $ZONE_BY_PLAYER{$player_id})
+        ) {
             my $meta = $PENDING_BY_PLAYER{$player_id};
 
             if (
@@ -500,6 +493,26 @@ sub playlistPlay {
             else {
                 $request->addParam('_title', $zone);
             }
+        }
+        elsif (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {
+            if (
+                $source->{name}
+                && $source->{ts}
+                && (time() - $source->{ts}) <= 30
+            ) {
+                my $display = cleanText(
+                    'LMS - ' . $source->{name},
+                    180
+                );
+
+                $request->addParam('_title', $display);
+
+                $log->info(
+                    "YandexTitle: applying LMS source for $player_id -> $display"
+                );
+            }
+
+            delete $PENDING_SOURCE_BY_PLAYER{$player_id};
         }
     }
 
