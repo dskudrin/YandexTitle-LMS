@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.9
+
+- Declares `Plugin.pm` source as UTF-8 with `use utf8;`.
+- Fixes hard-coded Cyrillic Station/Playlist labels such as `Алиса` being stored as UTF-8 bytes interpreted as Latin-1, which produced mojibake like `ÐÐ»Ð¸ÑÐ°`.
+- No playback/source-selection logic changes in this release.
+
+
 ## 0.3.8
 
 - Station/Playlist Name for Yandex Station is now always `Алиса`; artist and track remain in their dedicated metadata fields.

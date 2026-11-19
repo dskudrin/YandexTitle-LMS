@@ -2,6 +2,7 @@ package Plugins::YandexTitle::Plugin;
 
 use strict;
 use warnings;
+use utf8;
 
 use Encode qw(decode_utf8);
 
@@ -78,7 +79,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.8: source-only Station/Playlist labels, metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.9: UTF-8 source literals, source-only Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
