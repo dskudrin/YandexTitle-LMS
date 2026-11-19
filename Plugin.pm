@@ -11,6 +11,7 @@ use Slim::Formats::RemoteMetadata;
 use Slim::Music::Info;
 use Slim::Networking::SimpleAsyncHTTP;
 use Slim::Player::Playlist;
+use Slim::Plugin::Favorites::OpmlFavorites;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use Slim::Utils::Timers;
@@ -23,6 +24,7 @@ my $previousPlaylistPlay;
 my $previousPlaylistIndex;
 my $previousPlaylistJump;
 my $previousButton;
+my $previousFavoritesPlaylist;
 
 my %ZONE_BY_PLAYER = (
     'b8:27:eb:6d:75:2c' => 'Z1',
@@ -59,6 +61,11 @@ sub initPlugin {
         [ 1, 0, 0, \&buttonCommand ]
     );
 
+    $previousFavoritesPlaylist = Slim::Control::Request::addDispatch(
+        [ 'favorites', 'playlist', '_method' ],
+        [ 1, 1, 1, \&favoritesPlaylistCommand ]
+    );
+
     Slim::Control::Request::addDispatch(
         [ 'yandextitle', 'metadata', '_artist', '_title', '_cover' ],
         [ 1, 0, 0, \&metadataCommand ]
@@ -79,7 +86,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.9: UTF-8 source literals, source-only Station/Playlist labels and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.10: native LMS Favorite labels, UTF-8 Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -108,6 +115,13 @@ sub shutdownPlugin {
         Slim::Control::Request::addDispatch(
             [ 'button', '_buttoncode', '_time', '_orFunction' ],
             [ 1, 0, 0, $previousButton ]
+        );
+    }
+
+    if ($previousFavoritesPlaylist) {
+        Slim::Control::Request::addDispatch(
+            [ 'favorites', 'playlist', '_method' ],
+            [ 1, 1, 1, $previousFavoritesPlaylist ]
         );
     }
 }
@@ -341,6 +355,84 @@ sub playlistJump {
     );
 }
 
+sub queueSourceLabel {
+    my ($client, $name, $origin) = @_;
+
+    return 0 if !$client;
+
+    my $player_id = lc($client->id || '');
+    return 0 if !$ZONE_BY_PLAYER{$player_id};
+
+    $name = displayUnicode(cleanText($name, 140));
+    return 0 if $name eq '';
+
+    my $display = cleanText('LMS - ' . $name, 180);
+
+    $PENDING_SOURCE_BY_PLAYER{$player_id} = {
+        name   => $display,
+        ts     => time(),
+        origin => $origin || 'unknown',
+    };
+
+    $log->info(
+        "YandexTitle: queued LMS source for $player_id -> $display (" .
+        ($origin || 'unknown') . ")"
+    );
+
+    return 1;
+}
+
+sub favoritesPlaylistCommand {
+    my $request = shift;
+    my $client  = $request->client();
+    my $method  = $request->getParam('_method');
+
+    if (
+        $client
+        && defined $method
+        && !ref $method
+        && lc($method) eq 'play'
+    ) {
+        my $item_id = $request->getParam('item_id');
+
+        if (defined $item_id && !ref $item_id && $item_id ne '') {
+            my $entry = eval {
+                Slim::Plugin::Favorites::OpmlFavorites
+                    ->new($client)
+                    ->entry($item_id);
+            };
+
+            if ($entry && ref $entry eq 'HASH') {
+                my $name =
+                       $entry->{text}
+                    || $entry->{name}
+                    || $entry->{title}
+                    || '';
+
+                if ($name ne '') {
+                    queueSourceLabel(
+                        $client,
+                        $name,
+                        'native-favorite'
+                    );
+                }
+            }
+
+            if ($@) {
+                $log->warn(
+                    "YandexTitle: could not resolve Favorite item_id $item_id: $@"
+                );
+            }
+        }
+    }
+
+    if ($previousFavoritesPlaylist) {
+        return $previousFavoritesPlaylist->($request);
+    }
+
+    $request->setStatusBadDispatch();
+}
+
 sub sourceCommand {
     my $request = shift;
     my $client  = $request->client();
@@ -359,24 +451,12 @@ sub sourceCommand {
         return;
     }
 
-    my $name = cleanText(
-        $request->getParam('_name'),
-        140
-    );
+    my $name = $request->getParam('_name');
 
-    if ($name eq '') {
+    if (!queueSourceLabel($client, $name, 'cli-source')) {
         $request->setStatusBadParams();
         return;
     }
-
-    $PENDING_SOURCE_BY_PLAYER{$player_id} = {
-        name => displayUnicode($name),
-        ts   => time(),
-    };
-
-    $log->info(
-        "YandexTitle: queued LMS source for $player_id -> $name"
-    );
 
     $request->setStatusDone();
 }
@@ -421,13 +501,10 @@ sub applyPendingSource {
             [ 'newmetadata' ]
         );
 
-        delete $PENDING_SOURCE_BY_PLAYER{$player_id};
-
         $log->info(
-            "YandexTitle: applied delayed LMS source for $player_id -> $display"
+            "YandexTitle: applied LMS source for $player_id -> $display (attempt " .
+            ($attempt || 0) . ")"
         );
-
-        return;
     }
 
     $attempt ||= 0;
@@ -435,16 +512,25 @@ sub applyPendingSource {
     if ($attempt < 8) {
         Slim::Utils::Timers::setTimer(
             $client,
-            time() + 0.5,
+            time() + 0.75,
             \&applyPendingSource,
             $player_id,
             $attempt + 1
         );
     }
     else {
-        $log->warn(
-            "YandexTitle: could not apply LMS source for $player_id because the new non-Alice URL did not become available"
-        );
+        delete $PENDING_SOURCE_BY_PLAYER{$player_id};
+
+        if (
+            !defined $url
+            || ref $url
+            || $url eq ''
+            || $url =~ m{/api/yandex_station/}
+        ) {
+            $log->warn(
+                "YandexTitle: could not apply LMS source for $player_id because the new non-Alice URL did not become available"
+            );
+        }
     }
 }
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.10
+
+- Intercepts native LMS `favorites playlist play` commands and resolves the Favorite title directly from LMS Favorites, so Home Assistant is no longer required to provide the source label.
+- Station/Playlist Name for LMS Favorites is now `LMS - <Favorite name>`.
+- Keeps `yandextitle source <name>` as a fallback/compatibility path.
+- Re-applies the queued source label during the first several seconds of playback to survive cold-start metadata resets (Off → Favorite).
+
+
 ## 0.3.9
 
 - Declares `Plugin.pm` source as UTF-8 with `use utf8;`.
