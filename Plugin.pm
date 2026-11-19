@@ -3,6 +3,8 @@ package Plugins::YandexTitle::Plugin;
 use strict;
 use warnings;
 
+use Encode qw(decode_utf8);
+
 use Slim::Control::Request;
 use Slim::Formats::RemoteMetadata;
 use Slim::Music::Info;
@@ -69,7 +71,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.3: metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.4: metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -119,11 +121,21 @@ sub cleanText {
     return $value;
 }
 
+sub displayUnicode {
+    my ($value) = @_;
+
+    return '' if !defined $value;
+
+    return utf8::is_utf8($value)
+        ? $value
+        : decode_utf8($value);
+}
+
 sub displayTitle {
     my ($meta, $fallback) = @_;
 
-    my $artist = $meta->{artist} || '';
-    my $title  = $meta->{title}  || '';
+    my $artist = displayUnicode($meta->{artist} || '');
+    my $title  = displayUnicode($meta->{title}  || '');
 
     my $display;
 

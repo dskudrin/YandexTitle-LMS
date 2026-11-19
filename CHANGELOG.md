@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.4
+
+- Fixed UTF-8 decoding for the compact `current_title` used as Station/Playlist Name by RTI.
+- Cyrillic artist/title text in strings such as `Alice - Artist - Track` is now decoded before calling `setCurrentTitle`.
+- Kept RemoteMetadata artist/title values unchanged to avoid affecting already-correct Now Playing metadata.
+
+
 ## 0.3.3
 
 - Intercepts legacy RTI `button fwd` and `button rew` directly while a Yandex Station stream is active.
