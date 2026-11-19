@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.7
+
+- Applies queued LMS Favorite source labels after playback has switched to the new non-Alice URL.
+- Uses a short delayed retry loop instead of injecting the title into the initial `playlist play` request.
+- Prevents LMS from immediately clearing `LMS - <favorite>` during stream initialization.
+
+
 ## 0.3.6
 
 - Changed `yandextitle source <name>` to queue the LMS Favorite source label instead of applying it immediately to the current URL.

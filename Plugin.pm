@@ -12,6 +12,7 @@ use Slim::Networking::SimpleAsyncHTTP;
 use Slim::Player::Playlist;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
+use Slim::Utils::Timers;
 use Time::HiRes qw(time);
 
 my $log = logger('server.plugins');
@@ -77,7 +78,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.6: queued LMS source labels, metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.7: delayed LMS source labels, metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -399,6 +400,73 @@ sub sourceCommand {
     $request->setStatusDone();
 }
 
+sub applyPendingSource {
+    my ($client, $player_id, $attempt) = @_;
+
+    return if !$client;
+
+    my $source = $PENDING_SOURCE_BY_PLAYER{$player_id};
+    return if !$source;
+
+    if (
+        !$source->{ts}
+        || (time() - $source->{ts}) > 30
+    ) {
+        delete $PENDING_SOURCE_BY_PLAYER{$player_id};
+        return;
+    }
+
+    my $url = Slim::Player::Playlist::url($client);
+
+    if (
+        defined $url
+        && !ref $url
+        && $url ne ''
+        && $url !~ m{/api/yandex_station/}
+    ) {
+        my $display = cleanText(
+            'LMS - ' . $source->{name},
+            180
+        );
+
+        Slim::Music::Info::setCurrentTitle(
+            $url,
+            $display,
+            $client
+        );
+
+        Slim::Control::Request::notifyFromArray(
+            $client,
+            [ 'newmetadata' ]
+        );
+
+        delete $PENDING_SOURCE_BY_PLAYER{$player_id};
+
+        $log->info(
+            "YandexTitle: applied delayed LMS source for $player_id -> $display"
+        );
+
+        return;
+    }
+
+    $attempt ||= 0;
+
+    if ($attempt < 8) {
+        Slim::Utils::Timers::setTimer(
+            $client,
+            time() + 0.5,
+            \&applyPendingSource,
+            $player_id,
+            $attempt + 1
+        );
+    }
+    else {
+        $log->warn(
+            "YandexTitle: could not apply LMS source for $player_id because the new non-Alice URL did not become available"
+        );
+    }
+}
+
 sub metadataCommand {
     my $request = shift;
     my $client  = $request->client();
@@ -500,19 +568,23 @@ sub playlistPlay {
                 && $source->{ts}
                 && (time() - $source->{ts}) <= 30
             ) {
-                my $display = cleanText(
-                    'LMS - ' . $source->{name},
-                    180
+                Slim::Utils::Timers::killTimers(
+                    $client,
+                    \&applyPendingSource
                 );
 
-                $request->addParam('_title', $display);
+                Slim::Utils::Timers::setTimer(
+                    $client,
+                    time() + 0.75,
+                    \&applyPendingSource,
+                    $player_id,
+                    0
+                );
 
                 $log->info(
-                    "YandexTitle: applying LMS source for $player_id -> $display"
+                    "YandexTitle: scheduled LMS source for $player_id -> $source->{name}"
                 );
             }
-
-            delete $PENDING_SOURCE_BY_PLAYER{$player_id};
         }
     }
 
