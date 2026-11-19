@@ -62,6 +62,11 @@ sub initPlugin {
     );
 
     Slim::Control::Request::addDispatch(
+        [ 'yandextitle', 'source', '_name' ],
+        [ 1, 0, 0, \&sourceCommand ]
+    );
+
+    Slim::Control::Request::addDispatch(
         [ 'yandextitle', 'webhook', '_url' ],
         [ 0, 0, 0, \&webhookCommand ]
     );
@@ -71,7 +76,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.4: metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.5: metadata filter, LMS source label and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -345,6 +350,62 @@ sub playlistJump {
         $previousPlaylistJump,
         'jump'
     );
+}
+
+sub sourceCommand {
+    my $request = shift;
+    my $client  = $request->client();
+
+    if (!$client) {
+        $request->setStatusBadParams();
+        return;
+    }
+
+    my $player_id = lc($client->id || '');
+
+    if (!$ZONE_BY_PLAYER{$player_id}) {
+        $request->setStatusBadParams();
+        return;
+    }
+
+    my $name = cleanText(
+        $request->getParam('_name'),
+        140
+    );
+
+    if ($name eq '') {
+        $request->setStatusBadParams();
+        return;
+    }
+
+    my $url = Slim::Player::Playlist::url($client);
+
+    if (!defined $url || ref $url || $url eq '') {
+        $request->setStatusBadParams();
+        return;
+    }
+
+    my $display = cleanText(
+        'LMS - ' . displayUnicode($name),
+        180
+    );
+
+    Slim::Music::Info::setCurrentTitle(
+        $url,
+        $display,
+        $client
+    );
+
+    Slim::Control::Request::notifyFromArray(
+        $client,
+        [ 'newmetadata' ]
+    );
+
+    $log->info(
+        "YandexTitle: source for $player_id -> $display"
+    );
+
+    $request->setStatusDone();
 }
 
 sub metadataCommand {

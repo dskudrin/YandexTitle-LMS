@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.5
+
+- Added `yandextitle source <name>` CLI command for Home Assistant.
+- Sets LMS `current_title` to `LMS - <name>` for the selected player so RTI exposes it through Station/Playlist Name.
+- Keeps Alice metadata behavior unchanged; the next `yandextitle metadata` update can replace the source label with `Alice - Artist - Track`.
+
+
 ## 0.3.4
 
 - Fixed UTF-8 decoding for the compact `current_title` used as Station/Playlist Name by RTI.
