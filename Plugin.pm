@@ -11,6 +11,7 @@ use Slim::Formats::RemoteMetadata;
 use Slim::Music::Info;
 use Slim::Networking::SimpleAsyncHTTP;
 use Slim::Player::Playlist;
+use Slim::Plugin::Favorites::OpmlFavorites;
 use Slim::Utils::Log;
 use Slim::Utils::Prefs;
 use Slim::Utils::Timers;
@@ -79,10 +80,17 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.9: UTF-8 source literals, source-only Station/Playlist labels and Alice transport bridge installed');
+    Slim::Control::Request::subscribe(
+        \&favoritesPlaylistSeen,
+        [['favorites'], ['playlist']]
+    );
+
+    $log->warn('YandexTitle 0.3.10: passive LMS Favorite labels, UTF-8 Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
+    Slim::Control::Request::unsubscribe(\&favoritesPlaylistSeen);
+
     if ($previousPlaylistPlay) {
         Slim::Control::Request::addDispatch(
             [ 'playlist', 'play', '_item', '_title', '_fadein' ],
@@ -341,6 +349,54 @@ sub playlistJump {
     );
 }
 
+sub favoritesPlaylistSeen {
+    my $request = shift;
+    my $client  = $request->client();
+
+    return if !$client;
+
+    my $method = $request->getParam('_method');
+    return if !defined $method || ref $method || $method ne 'play';
+
+    my $item_id = $request->getParam('item_id');
+    return if !defined $item_id || ref $item_id || $item_id eq '';
+
+    my $player_id = lc($client->id || '');
+    return if !$ZONE_BY_PLAYER{$player_id};
+
+    my $favorites = Slim::Plugin::Favorites::OpmlFavorites->new($client);
+    my $entry = $favorites->entry($item_id);
+    return if !$entry || ref($entry) ne 'HASH';
+
+    my $title = cleanText($entry->{'text'}, 140);
+    return if $title eq '';
+
+    my $display = displayUnicode('LMS - ' . $title);
+
+    $PENDING_SOURCE_BY_PLAYER{$player_id} = {
+        name => $display,
+        ts   => time(),
+    };
+
+    Slim::Utils::Timers::killTimers(
+        $client,
+        \&applyPendingSource
+    );
+
+    Slim::Utils::Timers::setTimer(
+        $client,
+        time() + 0.75,
+        \&applyPendingSource,
+        $player_id,
+        0
+    );
+
+    $log->info(
+        "YandexTitle: observed native Favorite play for $player_id " .
+        "item_id=$item_id -> $display"
+    );
+}
+
 sub sourceCommand {
     my $request = shift;
     my $client  = $request->client();
@@ -369,13 +425,17 @@ sub sourceCommand {
         return;
     }
 
+    my $display = $name =~ /^LMS\s*-\s*/i
+        ? displayUnicode($name)
+        : displayUnicode('LMS - ' . $name);
+
     $PENDING_SOURCE_BY_PLAYER{$player_id} = {
-        name => displayUnicode($name),
+        name => $display,
         ts   => time(),
     };
 
     $log->info(
-        "YandexTitle: queued LMS source for $player_id -> $name"
+        "YandexTitle: queued LMS source fallback for $player_id -> $display"
     );
 
     $request->setStatusDone();

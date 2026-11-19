@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.10
+
+- Observes native `favorites playlist play item_id:...` requests through `Slim::Control::Request::subscribe` instead of replacing the Favorites dispatch handler.
+- Resolves the selected Favorite title from `Slim::Plugin::Favorites::OpmlFavorites->entry(item_id)`.
+- Queues `LMS - <Favorite name>` into `current_title` using the existing delayed source-label path, preserving the cold-start retry behavior.
+- Keeps `yandextitle source` as a Home Assistant fallback and normalizes that fallback to the same `LMS - <name>` format.
+- Unsubscribes the passive listener on plugin shutdown.
+
 ## 0.3.9
 
 - Declares `Plugin.pm` source as UTF-8 with `use utf8;`.
