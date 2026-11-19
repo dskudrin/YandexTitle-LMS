@@ -78,7 +78,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.7: delayed LMS source labels, metadata filter and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.8: source-only Station/Playlist labels, metadata filter and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -139,27 +139,7 @@ sub displayUnicode {
 }
 
 sub displayTitle {
-    my ($meta, $fallback) = @_;
-
-    my $artist = displayUnicode($meta->{artist} || '');
-    my $title  = displayUnicode($meta->{title}  || '');
-
-    my $display;
-
-    if ($artist ne '' && $title ne '') {
-        $display = "Alice - $artist - $title";
-    }
-    elsif ($title ne '') {
-        $display = "Alice - $title";
-    }
-    elsif ($artist ne '') {
-        $display = "Alice - $artist";
-    }
-    else {
-        $display = $fallback || 'Alice';
-    }
-
-    return cleanText($display, 180);
+    return 'Алиса';
 }
 
 sub cleanupMetadata {
@@ -425,7 +405,7 @@ sub applyPendingSource {
         && $url !~ m{/api/yandex_station/}
     ) {
         my $display = cleanText(
-            'LMS - ' . $source->{name},
+            $source->{name},
             180
         );
 
@@ -559,7 +539,7 @@ sub playlistPlay {
                 delete $PENDING_BY_PLAYER{$player_id};
             }
             else {
-                $request->addParam('_title', $zone);
+                $request->addParam('_title', 'Алиса');
             }
         }
         elsif (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {

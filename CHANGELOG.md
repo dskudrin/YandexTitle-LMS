@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.8
+
+- Station/Playlist Name for Yandex Station is now always `Алиса`; artist and track remain in their dedicated metadata fields.
+- LMS Favorites now use the Favorite name exactly as received from Home Assistant, without an `LMS - ` or other prefix.
+- Alice fallback before metadata arrives is also `Алиса`, replacing the previous zone label.
+- Keeps the delayed Favorite label application from 0.3.7 for reliable Off → LMS startup.
+
+
+
 ## 0.3.7
 
 - Applies queued LMS Favorite source labels after playback has switched to the new non-Alice URL.

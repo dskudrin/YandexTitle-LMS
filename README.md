@@ -7,17 +7,17 @@ It provides two-way integration:
 - Home Assistant → LMS: artist, title and artwork metadata.
 - LMS/RTI → Home Assistant: next/previous commands for the Yandex Station currently routed to an LMS Zone.
 
-For older RTI Squeezebox drivers, `current_title` is kept compact:
+For RTI Station/Playlist Name, `current_title` is source-only:
 
 ```
-Alice - Artist - Track
+Алиса
 ```
 
-If metadata has not arrived yet, the plugin uses a short fallback such as `Z1`, `Z2`, `Z3`, `Z4`, or `DHC`.
+Artist and track remain available separately through RemoteMetadata. For LMS Favorites, the plugin uses the Favorite name exactly as supplied by Home Assistant, for example `Энергичное` or `Deep House`.
 
 ## Current version
 
-**0.3.7**
+**0.3.8**
 
 Tested with Lyrion Music Server 9.x.
 
@@ -49,7 +49,7 @@ When Home Assistant starts an LMS Favorite, it can set the RTI Station/Playlist 
 yandextitle source <name>
 ```
 
-For example, `yandextitle source Энергичное` queues the label; after the following `playlist play` switches to the new LMS URL, the plugin applies `LMS - Энергичное` to `current_title`.
+For example, `yandextitle source Энергичное` queues the label; after the following `playlist play` switches to the new LMS URL, the plugin applies exactly `Энергичное` to `current_title`.
 
 ## Transport: LMS/RTI → Home Assistant
 
@@ -62,7 +62,7 @@ playlist jump +1
 playlist jump -1
 ```
 
-Astrion uses `playlist index`. The legacy RTI Squeezebox driver emits `button fwd/rew`; YandexTitle 0.3.7 intercepts those button commands directly before LMS converts them to playlist jumps.
+Astrion uses `playlist index`. The legacy RTI Squeezebox driver emits `button fwd/rew`; YandexTitle 0.3.8 intercepts those button commands directly before LMS converts them to playlist jumps.
 
 and sends a JSON webhook to Home Assistant:
 
@@ -87,6 +87,6 @@ The Home Assistant webhook automation dynamically finds the Yandex Station whose
 - `Plugin.pm` — LMS plugin code
 - `install.xml` — plugin manifest
 - `repo.xml` — LMS Additional Repository index
-- `dist/YandexTitle-0.3.7.zip` — installable package
+- `dist/YandexTitle-0.3.8.zip` — installable package
 - `home-assistant/automation.yaml` — Home Assistant metadata and reverse-control automations
 - `CHANGELOG.md` — version history
