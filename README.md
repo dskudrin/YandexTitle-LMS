@@ -13,11 +13,11 @@ For RTI Station/Playlist Name, `current_title` is source-only:
 Алиса
 ```
 
-Artist and track remain available separately through RemoteMetadata. For LMS Favorites, the plugin captures the Favorite directly inside LMS and exposes `LMS - <Favorite name>`, for example `LMS - Энергичное` or `LMS - Deep House`.
+Artist and track remain available separately through RemoteMetadata. For LMS Favorites, the plugin uses the Favorite name exactly as supplied by Home Assistant, for example `Энергичное` or `Deep House`.
 
 ## Current version
 
-**0.3.10**
+**0.3.9**
 
 Tested with Lyrion Music Server 9.x.
 
@@ -41,23 +41,15 @@ yandextitle metadata <artist> <title> <cover>
 
 The example in `home-assistant/automation.yaml` forwards `media_artist`, `media_title`, and `entity_picture` from Yandex Station to the currently selected LMS player.
 
-## LMS Favorite source labels
+## LMS source label: Home Assistant → LMS
 
-YandexTitle 0.3.10 intercepts native LMS Favorite playback and resolves the Favorite title directly from LMS. The RTI Station/Playlist Name becomes:
-
-```
-LMS - <Favorite name>
-```
-
-This works regardless of whether the Favorite was started from the LMS UI, RTI, or another controller using the native Favorites command.
-
-The legacy CLI command remains available as a fallback:
+When Home Assistant starts an LMS Favorite, it can set the RTI Station/Playlist Name through:
 
 ```
 yandextitle source <name>
 ```
 
-It produces the same `LMS - <name>` label on the next non-Alice playback.
+For example, `yandextitle source Энергичное` queues the label; after the following `playlist play` switches to the new LMS URL, the plugin applies exactly `Энергичное` to `current_title`.
 
 ## Transport: LMS/RTI → Home Assistant
 
@@ -70,7 +62,7 @@ playlist jump +1
 playlist jump -1
 ```
 
-Astrion uses `playlist index`. The legacy RTI Squeezebox driver emits `button fwd/rew`; YandexTitle 0.3.10 intercepts those button commands directly before LMS converts them to playlist jumps.
+Astrion uses `playlist index`. The legacy RTI Squeezebox driver emits `button fwd/rew`; YandexTitle 0.3.9 intercepts those button commands directly before LMS converts them to playlist jumps.
 
 and sends a JSON webhook to Home Assistant:
 
@@ -95,6 +87,6 @@ The Home Assistant webhook automation dynamically finds the Yandex Station whose
 - `Plugin.pm` — LMS plugin code
 - `install.xml` — plugin manifest
 - `repo.xml` — LMS Additional Repository index
-- `dist/YandexTitle-0.3.10.zip` — installable package
+- `dist/YandexTitle-0.3.9.zip` — installable package
 - `home-assistant/automation.yaml` — Home Assistant metadata and reverse-control automations
 - `CHANGELOG.md` — version history
