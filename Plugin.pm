@@ -80,7 +80,7 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.11: Favorite URL detection in playlist play, UTF-8 Station/Playlist labels and Alice transport bridge installed');
+    $log->warn('YandexTitle 0.3.12: direct Favorite URL scan in playlist play, UTF-8 Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
@@ -552,30 +552,33 @@ sub playlistPlay {
             my $favorite_display = '';
 
             my $favorites = Slim::Plugin::Favorites::OpmlFavorites->new($client);
-            my $favorite_index = $favorites->findUrl($item);
+            my $all_favorites = $favorites->all();
 
-            if (defined $favorite_index) {
-                my $entry = $favorites->entry($favorite_index);
+            for my $favorite (@{$all_favorites || []}) {
+                next if !$favorite || ref($favorite) ne 'HASH';
 
-                if ($entry && ref($entry) eq 'HASH') {
-                    my $favorite_title = cleanText($entry->{'text'}, 140);
+                my $favorite_url = $favorite->{'url'};
+                next if !defined $favorite_url || ref($favorite_url);
+                next if $favorite_url ne $item;
 
-                    if ($favorite_title ne '') {
-                        $favorite_display = displayUnicode(
-                            'LMS - ' . $favorite_title
-                        );
+                my $favorite_title = cleanText($favorite->{'title'}, 140);
+                next if $favorite_title eq '';
 
-                        $PENDING_SOURCE_BY_PLAYER{$player_id} = {
-                            name => $favorite_display,
-                            ts   => time(),
-                        };
+                $favorite_display = displayUnicode(
+                    'LMS - ' . $favorite_title
+                );
 
-                        $log->warn(
-                            "YandexTitle: matched playlist play URL to Favorite " .
-                            "for $player_id index=$favorite_index -> $favorite_display"
-                        );
-                    }
-                }
+                $PENDING_SOURCE_BY_PLAYER{$player_id} = {
+                    name => $favorite_display,
+                    ts   => time(),
+                };
+
+                $log->warn(
+                    "YandexTitle: matched playlist play URL to Favorite " .
+                    "for $player_id -> $favorite_display"
+                );
+
+                last;
             }
 
             if (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {

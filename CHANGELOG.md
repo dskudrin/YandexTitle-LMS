@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.12
+
+- Replaces `OpmlFavorites->findUrl()` with a direct scan of `OpmlFavorites->all()` when handling `playlist play`.
+- Compares the actual played `_item` URL against each Favorite URL verbatim.
+- Uses the matching Favorite's title for `LMS - <Favorite name>`.
+- This bypasses the internal Favorites URL index, which did not resolve the observed Yandex Music Favorite URL even though the URL in `favorites.opml` was identical.
+
 ## 0.3.11
 
 - Removes the passive `favorites playlist` subscription because native Favorite playback does not emit that notification.
