@@ -2,14 +2,14 @@
 <extensions>
   <plugins>
     <plugin name="YandexTitle"
-            version="0.3.12"
+            version="0.3.13"
             minTarget="9.0"
             maxTarget="*">
       <title lang="EN">Yandex LMS Title Filter</title>
       <desc lang="EN">Adds Yandex Station metadata and forwards next/previous LMS transport commands to Home Assistant.</desc>
       <creator>Local</creator>
-      <url>https://raw.githubusercontent.com/dskudrin/YandexTitle-LMS/main/dist/YandexTitle-0.3.12.zip</url>
-      <sha>8a34192157e5d12120893c5e6c96889f9550f54f</sha>
+      <url>https://raw.githubusercontent.com/dskudrin/YandexTitle-LMS/main/dist/YandexTitle-0.3.13.zip</url>
+      <sha>29ce19d2c6d7884df6a562b98e1c5bdc0e4b02ae</sha>
     </plugin>
   </plugins>
 </extensions>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.13
+
+- Keeps a detected LMS Favorite as the active source for that player instead of applying its label only once.
+- Subscribes to LMS `newmetadata` notifications and reapplies `LMS - <Favorite name>` after Yandex Music refreshes or replaces track metadata.
+- Suppresses the plugin's own follow-up `newmetadata` notification to avoid a refresh loop.
+- Clears the active LMS source when Alice playback starts or when an explicit non-Favorite play replaces it.
+- Keeps the existing delayed first-apply path and the `yandextitle source` fallback.
+
 ## 0.3.12
 
 - Replaces `OpmlFavorites->findUrl()` with a direct scan of `OpmlFavorites->all()` when handling `playlist play`.

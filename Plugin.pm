@@ -35,6 +35,8 @@ my %ZONE_BY_PLAYER = (
 
 my %PENDING_BY_PLAYER;
 my %PENDING_SOURCE_BY_PLAYER;
+my %ACTIVE_SOURCE_BY_PLAYER;
+my %IGNORE_NEXT_NEWMETADATA;
 my %META_BY_URL;
 
 sub initPlugin {
@@ -80,10 +82,17 @@ sub initPlugin {
         func  => \&metadataProvider,
     );
 
-    $log->warn('YandexTitle 0.3.12: direct Favorite URL scan in playlist play, UTF-8 Station/Playlist labels and Alice transport bridge installed');
+    Slim::Control::Request::subscribe(
+        \&newMetadataSeen,
+        [['newmetadata']]
+    );
+
+    $log->warn('YandexTitle 0.3.13: persistent Favorite labels across metadata refreshes, UTF-8 Station/Playlist labels and Alice transport bridge installed');
 }
 
 sub shutdownPlugin {
+    Slim::Control::Request::unsubscribe(\&newMetadataSeen);
+
     if ($previousPlaylistPlay) {
         Slim::Control::Request::addDispatch(
             [ 'playlist', 'play', '_item', '_title', '_fadein' ],
@@ -379,6 +388,11 @@ sub sourceCommand {
         ts   => time(),
     };
 
+    $ACTIVE_SOURCE_BY_PLAYER{$player_id} = {
+        name => $display,
+        ts   => time(),
+    };
+
     $log->info(
         "YandexTitle: queued LMS source fallback for $player_id -> $display"
     );
@@ -420,6 +434,13 @@ sub applyPendingSource {
             $display,
             $client
         );
+
+        $ACTIVE_SOURCE_BY_PLAYER{$player_id} = {
+            name => $display,
+            ts   => time(),
+        };
+
+        $IGNORE_NEXT_NEWMETADATA{$player_id} = time() + 1;
 
         Slim::Control::Request::notifyFromArray(
             $client,
@@ -465,6 +486,9 @@ sub metadataCommand {
     cleanupMetadata();
 
     my $player_id = lc($client->id || '');
+
+    delete $ACTIVE_SOURCE_BY_PLAYER{$player_id};
+    delete $PENDING_SOURCE_BY_PLAYER{$player_id};
 
     if (!$ZONE_BY_PLAYER{$player_id}) {
         $request->setStatusBadParams();
@@ -530,6 +554,9 @@ sub playlistPlay {
             $item =~ m{/api/yandex_station/}
             && (my $zone = $ZONE_BY_PLAYER{$player_id})
         ) {
+            delete $ACTIVE_SOURCE_BY_PLAYER{$player_id};
+            delete $PENDING_SOURCE_BY_PLAYER{$player_id};
+
             my $meta = $PENDING_BY_PLAYER{$player_id};
 
             if (
@@ -550,6 +577,7 @@ sub playlistPlay {
         }
         else {
             my $favorite_display = '';
+            my $matched_favorite = 0;
 
             my $favorites = Slim::Plugin::Favorites::OpmlFavorites->new($client);
             my $all_favorites = $favorites->all();
@@ -573,12 +601,26 @@ sub playlistPlay {
                     ts   => time(),
                 };
 
+                $ACTIVE_SOURCE_BY_PLAYER{$player_id} = {
+                    name => $favorite_display,
+                    ts   => time(),
+                };
+
+                $matched_favorite = 1;
+
                 $log->warn(
                     "YandexTitle: matched playlist play URL to Favorite " .
                     "for $player_id -> $favorite_display"
                 );
 
                 last;
+            }
+
+            if (
+                !$matched_favorite
+                && !$PENDING_SOURCE_BY_PLAYER{$player_id}
+            ) {
+                delete $ACTIVE_SOURCE_BY_PLAYER{$player_id};
             }
 
             if (my $source = $PENDING_SOURCE_BY_PLAYER{$player_id}) {
@@ -613,6 +655,79 @@ sub playlistPlay {
     }
 
     $request->setStatusBadDispatch();
+}
+
+sub newMetadataSeen {
+    my $request = shift;
+    my $client  = $request->client();
+
+    return if !$client;
+
+    my $player_id = lc($client->id || '');
+    return if !$ACTIVE_SOURCE_BY_PLAYER{$player_id};
+
+    if (
+        $IGNORE_NEXT_NEWMETADATA{$player_id}
+        && $IGNORE_NEXT_NEWMETADATA{$player_id} >= time()
+    ) {
+        delete $IGNORE_NEXT_NEWMETADATA{$player_id};
+        return;
+    }
+
+    delete $IGNORE_NEXT_NEWMETADATA{$player_id};
+
+    my $url = Slim::Player::Playlist::url($client);
+
+    return if !defined $url || ref $url || $url eq '';
+    return if $url =~ m{/api/yandex_station/};
+
+    Slim::Utils::Timers::killTimers(
+        $client,
+        \&applyActiveSource
+    );
+
+    Slim::Utils::Timers::setTimer(
+        $client,
+        time() + 0.10,
+        \&applyActiveSource,
+        $player_id
+    );
+}
+
+sub applyActiveSource {
+    my ($client, $player_id) = @_;
+
+    return if !$client;
+
+    my $source = $ACTIVE_SOURCE_BY_PLAYER{$player_id};
+    return if !$source || !$source->{name};
+
+    my $url = Slim::Player::Playlist::url($client);
+
+    return if !defined $url || ref $url || $url eq '';
+    return if $url =~ m{/api/yandex_station/};
+
+    my $display = cleanText(
+        $source->{name},
+        180
+    );
+
+    Slim::Music::Info::setCurrentTitle(
+        $url,
+        $display,
+        $client
+    );
+
+    $IGNORE_NEXT_NEWMETADATA{$player_id} = time() + 1;
+
+    Slim::Control::Request::notifyFromArray(
+        $client,
+        [ 'newmetadata' ]
+    );
+
+    $log->info(
+        "YandexTitle: refreshed active LMS source for $player_id -> $display"
+    );
 }
 
 sub metadataProvider {
